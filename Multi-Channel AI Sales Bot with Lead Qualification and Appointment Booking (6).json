@@ -1,0 +1,1154 @@
+{
+  "name": "Multi-Channel AI Sales Bot with Lead Qualification and Appointment Booking",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "id": "b7a5ddb9-727c-47a1-aa2b-22839f531054",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -30432,
+        240
+      ],
+      "webhookId": "be88e18a-2331-4267-bec7-101c33213534",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "EeKNaDFR7EiMmExG",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "airtableBaseId",
+              "value": "appsDpM4tKWS1h5D5",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "knowledgeBaseTableId",
+              "value": "tbl0q47upyfIq73Ic",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "leadsTableId",
+              "value": "tblrlxLhTPXGfmhQ0",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "qualificationThreshold",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "id-5",
+              "name": "handoffWebhookUrl",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "facebookPageAccessToken",
+              "value": "EAATQz3iOttkBPwNao2SrHhIzZCaWeJTRCFZB5ce1ZBkXVeIKjniaiojZCzZBzrkZCDF49ypBT61IvhKdRbXswkkdZC33UmJ2saYyAbGmVhRqvwKO5llpiUWAuMOPnsF6JCZCUzvRIB9zoNTv6v9DQAdlAZAUN6N4B0s6RWmB8ZCaNARyry01gWNBunBw9Ohg4VuvpVhrP7zZBZC92cXBokeGuwdCxEgN",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "c3ba0b1d-7dee-44d6-af45-7cb16d4a0afb",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -29760,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.airtableBaseId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.knowledgeBaseTableId }}"
+        },
+        "options": {}
+      },
+      "id": "cfcdbb48-a36a-464d-9119-d79831165306",
+      "name": "Get Knowledge Base from Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -29536,
+        144
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "pN2DNhT5Mzz7aZGG",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format Knowledge Base Context for AI Agent\nconst airtableData = $input.all();\n\n// Initialize knowledge sections\nlet knowledgeContext = \"\";\n\n// Group data by record type\nconst services = [];\nconst faqs = [];\nconst caseStudies = [];\nconst objectionHandling = [];\nconst pricing = [];\n\n// Categorize records\nfor (const item of airtableData) {\n  const record = item.json;\n  const recordType = record.Type || record.type || '';\n  \n  if (recordType.toLowerCase().includes('service')) {\n    services.push(record);\n  } else if (recordType.toLowerCase().includes('faq')) {\n    faqs.push(record);\n  } else if (recordType.toLowerCase().includes('case') || recordType.toLowerCase().includes('study')) {\n    caseStudies.push(record);\n  } else if (recordType.toLowerCase().includes('objection')) {\n    objectionHandling.push(record);\n  } else if (recordType.toLowerCase().includes('pricing')) {\n    pricing.push(record);\n  }\n}\n\n// Format Services Section\nif (services.length > 0) {\n  knowledgeContext += \"=== SERVICES ===\\n\";\n  for (const service of services) {\n    knowledgeContext += `\\nService: ${service.Name || service.name || 'Unnamed Service'}\\n`;\n    knowledgeContext += `Description: ${service.Description || service.description || 'No description'}\\n`;\n    if (service.Features || service.features) {\n      knowledgeContext += `Features: ${service.Features || service.features}\\n`;\n    }\n    if (service.Benefits || service.benefits) {\n      knowledgeContext += `Benefits: ${service.Benefits || service.benefits}\\n`;\n    }\n  }\n  knowledgeContext += \"\\n\";\n}\n\n// Format Pricing Section\nif (pricing.length > 0) {\n  knowledgeContext += \"=== PRICING ===\\n\";\n  for (const price of pricing) {\n    knowledgeContext += `\\nPlan: ${price.Name || price.name || 'Unnamed Plan'}\\n`;\n    knowledgeContext += `Price: ${price.Price || price.price || 'Contact for pricing'}\\n`;\n    if (price.Description || price.description) {\n      knowledgeContext += `Details: ${price.Description || price.description}\\n`;\n    }\n  }\n  knowledgeContext += \"\\n\";\n}\n\n// Format FAQs Section\nif (faqs.length > 0) {\n  knowledgeContext += \"=== FREQUENTLY ASKED QUESTIONS ===\\n\";\n  for (const faq of faqs) {\n    knowledgeContext += `\\nQ: ${faq.Question || faq.question || 'No question'}\\n`;\n    knowledgeContext += `A: ${faq.Answer || faq.answer || 'No answer'}\\n`;\n  }\n  knowledgeContext += \"\\n\";\n}\n\n// Format Case Studies Section\nif (caseStudies.length > 0) {\n  knowledgeContext += \"=== CASE STUDIES & SUCCESS STORIES ===\\n\";\n  for (const study of caseStudies) {\n    knowledgeContext += `\\nCase Study: ${study.Title || study.title || 'Unnamed Case Study'}\\n`;\n    knowledgeContext += `Client: ${study.Client || study.client || 'Confidential'}\\n`;\n    knowledgeContext += `Challenge: ${study.Challenge || study.challenge || 'N/A'}\\n`;\n    knowledgeContext += `Solution: ${study.Solution || study.solution || 'N/A'}\\n`;\n    knowledgeContext += `Results: ${study.Results || study.results || 'N/A'}\\n`;\n  }\n  knowledgeContext += \"\\n\";\n}\n\n// Format Objection Handling Section\nif (objectionHandling.length > 0) {\n  knowledgeContext += \"=== OBJECTION HANDLING ===\\n\";\n  for (const objection of objectionHandling) {\n    knowledgeContext += `\\nObjection: ${objection.Objection || objection.objection || 'No objection'}\\n`;\n    knowledgeContext += `Response: ${objection.Response || objection.response || 'No response'}\\n`;\n  }\n  knowledgeContext += \"\\n\";\n}\n\n// Get original webhook data from the Merge node\nconst webhookData = $('Merge All Channels').first().json;\n\n// Return formatted knowledge context along with webhook data\nreturn [{\n  json: {\n    ...webhookData,\n    knowledgeContext: knowledgeContext\n  }\n}];"
+      },
+      "id": "2adb6e91-ac37-4a91-9651-9ade749f865e",
+      "name": "Format Knowledge Base Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -29312,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.senderId }}",
+        "contextWindowLength": 10
+      },
+      "id": "0a1ef155-a441-411e-94c6-c8408d0fb635",
+      "name": "Conversation Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -28960,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Search the knowledge base for information about AI services, pricing, case studies, FAQs, and objection handling. Use this when you need specific details to answer customer questions.",
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.airtableBaseId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.knowledgeBaseTableId }}"
+        },
+        "options": {}
+      },
+      "id": "9f687994-f81d-4a5c-89e7-80d46206ba3b",
+      "name": "Airtable Knowledge Base Tool",
+      "type": "n8n-nodes-base.airtableTool",
+      "typeVersion": 2.1,
+      "position": [
+        -28624,
+        416
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "pN2DNhT5Mzz7aZGG",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.isQualified }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "541db41a-0ad8-4f19-8daa-92034d18dfed",
+      "name": "Check Lead Qualification",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -27728,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.airtableBaseId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.leadsTableId }}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Phone": "={{ $json.senderId }}",
+            "Name": "={{ $json.customerName || 'Unknown' }}",
+            "Company": "={{ $json.companyName || '' }}",
+            "Lead Score": "={{ $json.leadScore }}",
+            "Pain Points": "={{ $json.painPoints || '' }}",
+            "Interested Services": "={{ $json.interestedServices || '' }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "bbc10de6-385d-4c66-8b73-343acd667cf2",
+      "name": "Save Qualified Lead to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -27504,
+        48
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "pN2DNhT5Mzz7aZGG",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.airtableBaseId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.leadsTableId }}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.customerName || 'Unknown' }}",
+            "Phone Number": "={{ $json.senderId }}",
+            "Lead Score": "={{ $json.leadScore }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "User Message",
+              "displayName": "User Message",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AI Response",
+              "displayName": "AI Response",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Sentiment",
+              "displayName": "Sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Positive",
+                  "value": "Positive"
+                },
+                {
+                  "name": "Neutral",
+                  "value": "Neutral"
+                },
+                {
+                  "name": "Negative",
+                  "value": "Negative"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Qualified",
+              "displayName": "Qualified",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Booking Link Sent",
+              "displayName": "Booking Link Sent",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "ee3a175f-ae9e-4559-93c7-9c7982104bb6",
+      "name": "Save Unqualified Lead to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -27504,
+        240
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "pN2DNhT5Mzz7aZGG",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1555659-8486",
+        "recipientPhoneNumber": "=923017160193",
+        "textBody": "={{ $('Extract Response Text').item.json.response }}",
+        "additionalFields": {}
+      },
+      "id": "23ab46db-9269-44fd-aedd-5c56f3a5102e",
+      "name": "Send WhatsApp Response",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -26832,
+        48
+      ],
+      "webhookId": "b8b01531-5600-4cc8-9e1f-d4ee89a5f663",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "IXT9bPW9j8P4yCL5",
+          "name": "WhatsApp account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.needsHumanHandoff }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c871540f-4914-4d2e-ba35-3e37445d4282",
+      "name": "Check if Human Handoff Needed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -27280,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Configuration').first().json.handoffWebhookUrl }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}"
+            },
+            {
+              "name": "customerName",
+              "value": "={{ $('AI Sales Agent').first().json.customerName || 'Unknown' }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $('WhatsApp Trigger').item.json.messages[0].text.body }}"
+            },
+            {
+              "name": "conversationContext",
+              "value": "={{ $('AI Sales Agent').first().json }}"
+            },
+            {
+              "name": "leadScore",
+              "value": "={{ $('Lead Scoring Function').item.json.leadScore }}"
+            },
+            {
+              "name": "priority",
+              "value": "HIGH"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b206c2fb-c2a5-4610-8a5c-a88bb70dbd1a",
+      "name": "Send to Human Handoff Queue (Webhook)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -27056,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "channel",
+              "value": "whatsapp",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "senderId",
+              "value": "={{ $json.message.from }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "messageText",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "message",
+              "value": "={{ JSON.stringify({ \"from\": $json.message.from, \"text\": $json.message.text }) }}",
+              "type": "object"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "02f047a2-5eb9-472c-a6b1-76e2bbfb979b",
+      "name": "Normalize WhatsApp Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -30208,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "efbee230-74fc-4835-94d4-21cd7da124c5",
+      "name": "Merge All Channels",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -29984,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "id-1",
+                    "leftValue": "={{ $('Format Knowledge Base Context').item.json.channel }}",
+                    "rightValue": "whatsapp",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "id-2",
+                    "leftValue": "={{ $('Format Knowledge Base Context').item.json.channel }}",
+                    "rightValue": "gmail",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "id-3",
+                    "leftValue": "={{ $('Format Knowledge Base Context').item.json.channel }}",
+                    "rightValue": "facebook",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 0
+        }
+      },
+      "id": "2a0f785a-3ec5-4baa-a539-545b865bed04",
+      "name": "Route Response by Channel",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -27056,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "id": "ac4d4078-74d2-4a63-bd56-7257712bdb89",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -30432,
+        48
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "C61ATzINRjRs5bgZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "channel",
+              "value": "gmail",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "senderId",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "messageText",
+              "value": "={{ $json.plainText || $json.snippet }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "message",
+              "value": "={{ JSON.stringify({ \"from\": $json.from, \"text\": $json.plainText || $json.snippet }) }}",
+              "type": "object"
+            },
+            {
+              "id": "id-5",
+              "name": "emailId",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "threadId",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "890a1c5e-d777-47f4-b4f5-b8ca25983eb9",
+      "name": "Normalize Gmail Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -30208,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Format Knowledge Base Context').item.json.id }}",
+        "message": "={{ $('Extract Response Text').item.json.response }}",
+        "options": {
+          "replyToSenderOnly": false
+        }
+      },
+      "id": "59094198-12a2-4e2e-9db5-ad376124fcad",
+      "name": "Send Gmail Response",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -26832,
+        304
+      ],
+      "webhookId": "3c4bb127-c67b-479b-ae2a-26a74d61e27d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "C61ATzINRjRs5bgZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -29232,
+        480
+      ],
+      "id": "d23e2b74-ea9b-469a-996c-b4cf9181d1a0",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "sUW7MQc6f3s77OZL",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "manatf306@gmail.com",
+          "mode": "list",
+          "cachedResultName": "SalesBot Appointments"
+        },
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -27952,
+        80
+      ],
+      "id": "3c73e0f6-5c48-4e19-83da-c942d84cb870",
+      "name": "Create an event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "aNbvNe6jjH7zKKuh",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Step 1: Get the message text ---\nlet inputText = \"\";\n\nif ($json.response) {\n  inputText = $json.response;\n} else if ($json.output) {\n  try {\n    const parsed = JSON.parse($json.output);\n    inputText = parsed.response || \"\";\n  } catch (err) {\n    inputText = $json.output || \"\";\n  }\n}\n\ninputText = inputText.toLowerCase();\n\n// --- Step 2: Initialize score ---\nlet score = 0;\n\n// --- Step 3: Define BANT keyword groups ---\nconst budgetKeywords = ['budget', 'afford', 'price', 'cost', 'invest', 'spend', 'money', 'approved'];\nconst authorityKeywords = ['decision', 'decide', 'owner', 'ceo', 'director', 'manager', 'head of', 'responsible', 'authority'];\nconst needKeywords = ['problem', 'issue', 'challenge', 'pain', 'struggle', 'difficult', 'need', 'require', 'looking for', 'help'];\nconst timelineKeywords = ['soon', 'urgent', 'asap', 'immediately', 'this week', 'this month', 'ready', 'now', 'today'];\n\n// --- Step 4: Score based on matches ---\nif (budgetKeywords.some(k => inputText.includes(k))) score += 25;\nif (authorityKeywords.some(k => inputText.includes(k))) score += 25;\nif (needKeywords.some(k => inputText.includes(k))) score += 25;\nif (timelineKeywords.some(k => inputText.includes(k))) score += 25;\n\n// --- Step 5: Define qualification ---\nlet qualification = \"Needs Nurturing\";\nif (score >= 75) qualification = \"Highly Qualified\";\nelse if (score >= 50) qualification = \"Qualified\";\n\n// --- Step 6: Return result ---\nreturn [\n  {\n    json: {\n      leadScore: score,\n      qualification,\n      analyzedText: inputText\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -28400,
+        144
+      ],
+      "id": "afcce09a-6728-413f-919e-2092efdd637a",
+      "name": "Lead Scoring Function"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "You are an expert AI Sales Assistant working for an AI Automation Agency that offers AI-powered business solutions and services.\n\n🎯 Your main goals:\n1. Engage leads in a friendly, professional way.\n2. Understand their needs, pain points, and business goals.\n3. Use the Airtable Knowledge Base Tool to provide **accurate, verified information** about AI services, pricing, benefits, and use cases.\n4. Handle objections with empathy and real examples (from the Knowledge Base).\n5. Encourage qualified leads to take the next step — booking a consultation or demo.\n\n---\n\n### 🧩 AVAILABLE TOOL\n**Airtable Knowledge Base Tool** — Searches company data for services, pricing, FAQs, case studies, or client results.  \n👉 Use it *before* answering specific product or pricing questions.\n\n---\n\n### 💬 CONVERSATION STYLE\n- Be conversational, concise, and helpful.\n- Ask discovery questions naturally: \"What kind of results are you looking for?\" or \"Do you already use AI tools in your business?\"\n- Always maintain a **warm and professional** tone.\n- Never invent answers — use only verified information from the Knowledge Base.\n- If unsure or information isn’t available, politely say:  \n  “I don’t have that specific detail right now, but I can connect you with a team member.”\n\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -29056,
+        112
+      ],
+      "id": "ac5c1ede-21f8-4b9f-ba92-1abb9bdd8b46",
+      "name": "AI Sales Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "let output = $json.output;\nlet responseText = \"\";\n\n// Parse the JSON if it's a string\ntry {\n  const parsed = JSON.parse(output);\n  responseText = parsed.response || \"\";\n} catch (err) {\n  // Fallback if not valid JSON\n  responseText = output || \"\";\n}\n\nreturn [\n  {\n    json: {\n      response: responseText\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -28624,
+        144
+      ],
+      "id": "d82fa69b-eb5d-4396-a1a7-922039aceb86",
+      "name": "Extract Response Text"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8f78fc78-bb32-426e-8e95-febfa101d7ee",
+              "leftValue": "={{ $json.leadScore }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -28176,
+        144
+      ],
+      "id": "569c557a-40b2-4a77-a437-78544634c079",
+      "name": "Check lead score"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize WhatsApp Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Get Knowledge Base from Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Knowledge Base from Airtable": {
+      "main": [
+        [
+          {
+            "node": "Format Knowledge Base Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Knowledge Base Context": {
+      "main": [
+        [
+          {
+            "node": "AI Sales Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Sales Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable Knowledge Base Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Sales Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Lead Qualification": {
+      "main": [
+        [
+          {
+            "node": "Save Qualified Lead to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Unqualified Lead to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Qualified Lead to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Check if Human Handoff Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Unqualified Lead to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Check if Human Handoff Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Human Handoff Needed": {
+      "main": [
+        [
+          {
+            "node": "Send to Human Handoff Queue (Webhook)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Response by Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Human Handoff Queue (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize WhatsApp Data": {
+      "main": [
+        [
+          {
+            "node": "Merge All Channels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Channels": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Response by Channel": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Gmail Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Gmail Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Gmail Data": {
+      "main": [
+        [
+          {
+            "node": "Merge All Channels",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Sales Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event": {
+      "main": [
+        [
+          {
+            "node": "Check Lead Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Scoring Function": {
+      "main": [
+        [
+          {
+            "node": "Check lead score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Sales Agent": {
+      "main": [
+        [
+          {
+            "node": "Extract Response Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Response Text": {
+      "main": [
+        [
+          {
+            "node": "Lead Scoring Function",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check lead score": {
+      "main": [
+        [
+          {
+            "node": "Create an event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Lead Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "cbb5cb31-93d9-46a0-aa9c-911e6199f91b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ce136f21a3376e2a2cfd7d11c283b2b14138033deb2c23084e4cb845b651452c"
+  },
+  "id": "C0xdUsMKSDGl6MtI",
+  "tags": []
+}
